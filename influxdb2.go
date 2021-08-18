@@ -191,6 +191,9 @@ func (r *reporter2) send() error {
 	errCh := writeAPI.Errors()
 	go func() {
 		err = <-errCh
+		if err != nil {
+			log.Printf("write error err=%v", err)
+		}
 	}()
 	for _, pt := range pts {
 		writeAPI.WritePoint(pt)
