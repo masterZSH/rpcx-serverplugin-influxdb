@@ -1,13 +1,11 @@
 package influxdb2
 
 import (
-	"context"
 	"fmt"
 	"log"
+	"math"
 	uurl "net/url"
 	"time"
-
-	"github.com/influxdata/influxdb-client-go/v2/api"
 
 	client "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
@@ -66,23 +64,12 @@ func (r *reporter2) makeClient() (err error) {
 func (r *reporter2) run() {
 	intervalTicker := time.NewTicker(r.interval)
 	defer intervalTicker.Stop()
-	pingTicker := time.NewTicker(time.Second * 5)
-	defer pingTicker.Stop()
 
 	for {
 		select {
 		case <-intervalTicker.C:
 			if err := r.send(); err != nil {
 				log.Printf("unable to send metrics to InfluxDB. err=%v", err)
-			}
-		case <-pingTicker.C:
-			_, err := r.client.Health(context.Background())
-			if err != nil {
-				log.Printf("got error while sending a ping to InfluxDB, trying to recreate client. err=%v", err)
-
-				if err = r.makeClient(); err != nil {
-					log.Printf("unable to make InfluxDB client. err=%v", err)
-				}
 			}
 		}
 	}
@@ -126,6 +113,11 @@ func (r *reporter2) send() error {
 			))
 		case metrics.Histogram:
 			ms := metric.Snapshot()
+			isInf := math.IsInf(ms.Mean(), 0)
+			var mean float64
+			if isInf {
+				mean = 0
+			}
 			ps := ms.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999})
 			pts = append(pts, client.NewPoint(
 				fmt.Sprintf("%s.histogram", name),
@@ -133,7 +125,7 @@ func (r *reporter2) send() error {
 				map[string]interface{}{
 					"count":    ms.Count(),
 					"max":      ms.Max(),
-					"mean":     ms.Mean(),
+					"mean":     mean,
 					"min":      ms.Min(),
 					"stddev":   ms.StdDev(),
 					"variance": ms.Variance(),
@@ -148,15 +140,33 @@ func (r *reporter2) send() error {
 			))
 		case metrics.Meter:
 			ms := metric.Snapshot()
+			var m1, m5, m15, mean float64
+			isInf := math.IsInf(ms.Rate1(), 0)
+			if isInf {
+				m1 = 0
+			}
+			isInf = math.IsInf(ms.Rate5(), 0)
+			if isInf {
+				m5 = 0
+			}
+			isInf = math.IsInf(ms.Rate15(), 0)
+			if isInf {
+				m15 = 0
+			}
+			isInf = math.IsInf(ms.RateMean(), 0)
+			if isInf {
+				mean = 0
+			}
+
 			pts = append(pts, client.NewPoint(
 				fmt.Sprintf("%s.meter", name),
 				r.tags,
 				map[string]interface{}{
 					"count": ms.Count(),
-					"m1":    ms.Rate1(),
-					"m5":    ms.Rate5(),
-					"m15":   ms.Rate15(),
-					"mean":  ms.RateMean(),
+					"m1":    m1,
+					"m5":    m5,
+					"m15":   m15,
+					"mean":  mean,
 				},
 				now,
 			))
@@ -182,7 +192,7 @@ func (r *reporter2) send() error {
 					"m1":       ms.Rate1(),
 					"m5":       ms.Rate5(),
 					"m15":      ms.Rate15(),
-					"meanrate": ms.RateMean(),
+					"meanrate": float32(ms.RateMean()),
 				},
 				now,
 			))
@@ -200,6 +210,6 @@ func (r *reporter2) send() error {
 		writeAPI.WritePoint(pt)
 	}
 	writeAPI.Flush()
-	writeAPI.(*api.WriteAPIImpl).Close()
+	// writeAPI.(*api.WriteAPIImpl).Close()
 	return err
 }
