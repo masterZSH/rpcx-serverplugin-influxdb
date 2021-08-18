@@ -29,12 +29,12 @@ type reporter2 struct {
 }
 
 // InfluxDB starts a InfluxDB reporter which will post the metrics from the given registry at each d interval.
-func InfluxDB2(r metrics.Registry, d time.Duration, url, bucket, token string) {
-	InfluxDB2WithTags(r, d, url, bucket, token, nil)
+func InfluxDB2(r metrics.Registry, d time.Duration, url, bucket, token, org string) {
+	InfluxDB2WithTags(r, d, url, bucket, token, org, nil)
 }
 
 // InfluxDBWithTags starts a InfluxDB reporter which will post the metrics from the given registry at each d interval with the specified tags
-func InfluxDB2WithTags(r metrics.Registry, d time.Duration, url, bucket, token string, tags map[string]string) {
+func InfluxDB2WithTags(r metrics.Registry, d time.Duration, url, bucket, token, org string, tags map[string]string) {
 	u, err := uurl.Parse(url)
 	if err != nil {
 		log.Printf("unable to parse InfluxDB url %s. err=%v", url, err)
@@ -47,6 +47,7 @@ func InfluxDB2WithTags(r metrics.Registry, d time.Duration, url, bucket, token s
 		url:      *u,
 		bucket:   bucket,
 		token:    token,
+		org:      org,
 		tags:     tags,
 	}
 	if err := rep.makeClient(); err != nil {
