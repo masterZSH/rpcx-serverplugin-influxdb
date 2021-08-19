@@ -1,6 +1,6 @@
 # rpcx-serverplugin-influxdb
-rpcx serverplugin influxdb2 
 
+Collects data from rpcx microservices and sends metrics to InfluxDB v2.
 
 ## Usage 
 
