@@ -4,6 +4,10 @@ Collects data from rpcx microservices and sends metrics to InfluxDB v2.
 
 ## Usage 
 
+```
+	go get github.com/masterZSH/rpcx-serverplugin-influxdb
+```
+
 
 ```go
     import (
